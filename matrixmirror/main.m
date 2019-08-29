@@ -58,6 +58,7 @@ void convertToAscii(CGContextRef bitmap) {
             mvprintw(Y, X, "%c", c);
         }
     }
+    mvprintw(LINES - 1, 0, "  Press space to quit...  ");
     refresh();
 }
 
