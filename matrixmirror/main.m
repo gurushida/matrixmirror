@@ -10,7 +10,6 @@
 
 
 static pthread_mutex_t mutex;
-static pthread_mutex_t condition_mutex;
 static pthread_cond_t condition;
 static NSImage *image;
 
@@ -136,17 +135,17 @@ void startCapture() {
     attron(COLOR_PAIR(1));
     curs_set(0);
     
-    pthread_mutex_init(&condition_mutex, NULL);
     pthread_cond_init(&condition, NULL);
     
     int c;
     captureImage(output);
     while ((c = getch()) != ' ') {
-        pthread_cond_wait(&condition, &condition_mutex);
+        pthread_cond_wait(&condition, &mutex);
         processImage(image);
         captureImage(output);
 
     }
+    pthread_cond_destroy(&condition);
     delwin(window);
     endwin();
     [captureSession stopRunning];
@@ -201,5 +200,6 @@ int main(int argc, const char * argv[]) {
 
     startCapture();
     
+    pthread_mutex_destroy(&mutex);
     return 0;
 }
