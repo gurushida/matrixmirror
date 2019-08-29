@@ -243,7 +243,10 @@
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
 				CREATE_INFOPLIST_SECTION_IN_BINARY = YES;
+				ENABLE_TESTABILITY = NO;
+				GCC_OPTIMIZATION_LEVEL = fast;
 				INFOPLIST_FILE = matrixmirror/Info.plist;
+				ONLY_ACTIVE_ARCH = NO;
 				OTHER_LDFLAGS = "-lncurses";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
@@ -254,7 +257,9 @@
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
 				CREATE_INFOPLIST_SECTION_IN_BINARY = YES;
+				GCC_OPTIMIZATION_LEVEL = fast;
 				INFOPLIST_FILE = matrixmirror/Info.plist;
+				ONLY_ACTIVE_ARCH = YES;
 				OTHER_LDFLAGS = "-lncurses";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};

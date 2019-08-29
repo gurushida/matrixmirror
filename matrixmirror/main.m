@@ -1,5 +1,7 @@
 #include <ncurses.h>
 #include <pthread.h>
+#include <stdlib.h>
+#include <time.h>
 #import <Foundation/Foundation.h>
 #import <AVFoundation/AVCaptureDevice.h>
 #import <AVFoundation/AVCaptureInput.h>
@@ -13,6 +15,70 @@ static pthread_mutex_t mutex;
 static pthread_cond_t condition;
 static NSImage *image;
 
+static int* trails = NULL;
+static int* trail_lengthes = NULL;
+static int* trail_speeds = NULL;
+static int CURRENT_COLS = 0;
+static int CURRENT_LINES = 0;
+
+int getRandomTrailLength() {
+    return 5 + rand() % 20;
+}
+
+
+int getRandomTrailSpeed() {
+    return 1 + rand() % 3;
+}
+
+
+
+void initTrails() {
+    trails = (int*)realloc(trails, sizeof(int) * COLS);
+    trail_lengthes = (int*)realloc(trail_lengthes, sizeof(int) * COLS);
+    trail_speeds = (int*)realloc(trail_speeds, sizeof(int) * COLS);
+    for (int i = CURRENT_COLS ; i < COLS ; i++) {
+        trails[i] = -1;
+        if (rand() % 3 == 0) {
+            trail_speeds[i] = getRandomTrailSpeed();
+            trail_lengthes[i] = getRandomTrailLength();
+            trails[i] = rand() % (LINES + trail_lengthes[i]);
+        }
+    }
+    CURRENT_COLS = COLS;
+    CURRENT_LINES = LINES;
+}
+
+
+void updateTrails() {
+    int nTrailsToRestart = 0;
+    int pool[COLS];
+    int nFreeColumns = 0;
+
+    for (int i = 0 ; i < COLS ; i++) {
+        if (trails[i] != -1) {
+            trails[i] += trail_speeds[i];
+            if (trails[i] >= LINES + trail_lengthes[i]) {
+                trails[i] = -1;
+                nTrailsToRestart++;
+            }
+        } else {
+            pool[nFreeColumns++] = i;
+        }
+    }
+    while (nTrailsToRestart > 0) {
+        nTrailsToRestart--;
+        int n;
+        n = rand() % nFreeColumns;
+        int index = pool[n];
+        pool[n] = pool[nFreeColumns - 1];
+        nFreeColumns--;
+
+        trails[index] = 0;
+        trail_lengthes[index] = getRandomTrailLength();
+        trail_speeds[index] = getRandomTrailSpeed();
+    }
+}
+
 
 void convertToAscii(CGContextRef bitmap) {
     size_t width = CGBitmapContextGetWidth(bitmap);
@@ -22,6 +88,12 @@ void convertToAscii(CGContextRef bitmap) {
     char* m = "`^\",:;Il!i~+_-?]}{1)(|/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$";
     unsigned long len = strlen(m);
     
+    if (CURRENT_COLS != COLS || CURRENT_LINES != LINES) {
+        initTrails();
+    }
+
+    int current_color_pair = 1;
+    attron(COLOR_PAIR(current_color_pair));
     for (int Y = 0 ; Y < LINES ; Y++) {
         for (int X = 0 ; X < COLS ; X++) {
             
@@ -54,10 +126,28 @@ void convertToAscii(CGContextRef bitmap) {
             
             val = (val * (len - 1)) / (n * 768);
             char c = m[len - 1 - val];
+
+            int color_pair = 1;
+            if (trails[X] != -1) {
+                if (Y <= trails[X] && Y>= trails[X] - trail_lengthes[X]) {
+                    color_pair = 2;
+                }
+            }
+
+            if (color_pair != current_color_pair) {
+                attroff(COLOR_PAIR(current_color_pair));
+                attron(COLOR_PAIR(color_pair));
+                current_color_pair = color_pair;
+            }
             mvprintw(Y, X, "%c", c);
         }
     }
+
+    updateTrails();
+    attroff(COLOR_PAIR(current_color_pair));
+    attron(COLOR_PAIR(2));
     mvprintw(LINES - 1, 0, "  Press space to quit...  ");
+    attroff(COLOR_PAIR(2));
     refresh();
 }
 
@@ -132,7 +222,7 @@ void startCapture() {
     use_default_colors();
     start_color();
     init_pair(1, COLOR_GREEN, COLOR_BLACK);
-    attron(COLOR_PAIR(1));
+    init_pair(2, 10, COLOR_BLACK);
     curs_set(0);
     
     pthread_cond_init(&condition, NULL);
@@ -156,6 +246,7 @@ int main(int argc, const char * argv[]) {
     @autoreleasepool {
     }
     
+    srand((unsigned int)time(NULL));
     pthread_mutex_init(&mutex, NULL);
 
     // Let's ask for permission to use the camera
