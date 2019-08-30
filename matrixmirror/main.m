@@ -13,7 +13,9 @@
 
 static pthread_mutex_t mutex;
 static pthread_cond_t condition;
+
 static NSImage *image;
+static pthread_mutex_t image_mutex;
 
 static int* trails = NULL;
 static int* trail_lengthes = NULL;
@@ -183,7 +185,11 @@ void captureImage(AVCaptureStillImageOutput *output) {
     [output captureStillImageAsynchronouslyFromConnection:[output connectionWithMediaType:AVMediaTypeVideo] completionHandler:^(CMSampleBufferRef  _Nullable imageDataSampleBuffer, NSError * _Nullable error) {
 
         NSData* jpeg = [AVCaptureStillImageOutput jpegStillImageNSDataRepresentation: imageDataSampleBuffer];
+
+        pthread_mutex_lock(&image_mutex);
         image = [[NSImage alloc] initWithData:jpeg];
+        pthread_mutex_unlock(&image_mutex);
+
         pthread_cond_signal(&condition);
     }];
 }
@@ -226,15 +232,20 @@ void startCapture() {
     curs_set(0);
     
     pthread_cond_init(&condition, NULL);
+    pthread_mutex_init(&image_mutex, NULL);
     
     int c;
     captureImage(output);
     while ((c = getch()) != ' ') {
         pthread_cond_wait(&condition, &mutex);
-        processImage(image);
-        captureImage(output);
 
+        pthread_mutex_lock(&image_mutex);
+        captureImage(output);
+        processImage(image);
+        pthread_mutex_unlock(&image_mutex);
     }
+
+    pthread_mutex_destroy(&image_mutex);
     pthread_cond_destroy(&condition);
     delwin(window);
     endwin();
